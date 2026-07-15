@@ -299,7 +299,7 @@
         </div>
 
         <div class="card">
-            <div class="card-title">4. Schedule Presets & FX</div>
+            <div class="card-title">5. Schedule Presets & FX</div>
             <div class="dual-inputs">
                 <div class="form-group">
                     <label for="revHoursPerDay">Hours / Day</label>
@@ -315,6 +315,20 @@
                 <input type="number" id="revExchangeRate" value="94.00" step="0.01" oninput="syncFxAcrossCalculators(this.value)">
             </div>
         </div>
+
+        <div class="card">
+            <div class="card-title">4. Monthly Commission</div>
+            <div class="dual-inputs">
+                <div class="form-group">
+                    <label for="revCommPct">Commission (%)</label>
+                    <input type="number" id="revCommPct" value="10" step="0.1" oninput="updateRevFromCommPct()">
+                </div>
+                <div class="form-group">
+                    <label for="revCommFlat">Monthly Flat (₹)</label>
+                    <input type="number" id="revCommFlat" value="10000" oninput="updateRevFromCommFlat()">
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="table-container">
@@ -324,7 +338,7 @@
                     <th>Annual Fixed (₹)</th>
                     <th>Annual Variable (₹)</th>
                     <th>Base Monthly Cost (₹)</th>
-                    <th>Target Monthly Billing (₹)</th>
+                    <th>Target Monthly Billing (₹)</th><th>Monthly Comm. (₹)</th><th>Net Monthly Billing (₹)</th>
                     <th>Billing Per Day (₹)</th>
                     <th>Billing Per Hour (₹)</th>
                     <th class="highlight-blue">Billing Per Day ($)</th>
@@ -336,7 +350,7 @@
                     <td id="tblRevFixedAnnual">--</td>
                     <td id="tblRevVariableAnnual">--</td>
                     <td id="tblRevMonthlyBase">--</td>
-                    <td id="tblRevMonthlyBilling">--</td>
+                    <td id="tblRevMonthlyBilling">--</td><td id="tblRevCommMonthly">--</td><td id="tblRevNetMonthly">--</td>
                     <td id="tblRevDayInr">--</td>
                     <td id="tblRevHourInr">--</td>
                     <td id="tblRevDayUsd" class="highlight-blue">--</td>
@@ -355,6 +369,7 @@
         document.getElementById('exchangeRate').value = val;
         document.getElementById('revExchangeRate').value = val;
         updateFromUsd();
+        updateRevFromCommPct();
         calculateReverseBilling();
     }
 
@@ -453,6 +468,7 @@
         const lakhs = parseFloat(document.getElementById('ctcInLakhs').value) || 0;
         document.getElementById('ctcAbsolute').value = Math.round(lakhs * 100000);
         syncVariablePay();
+        updateRevFromCommPct();
         calculateReverseBilling();
     }
 
@@ -460,6 +476,7 @@
         const absolute = parseFloat(document.getElementById('ctcAbsolute').value) || 0;
         document.getElementById('ctcInLakhs').value = (absolute / 100000).toFixed(2);
         syncVariablePay();
+        updateRevFromCommPct();
         calculateReverseBilling();
     }
 
@@ -467,6 +484,7 @@
         const pct = parseFloat(document.getElementById('varPct').value) || 0;
         const ctc = parseFloat(document.getElementById('ctcAbsolute').value) || 0;
         document.getElementById('varFlat').value = Math.round(ctc * (pct / 100));
+        updateRevFromCommPct();
         calculateReverseBilling();
     }
 
@@ -478,6 +496,7 @@
         } else {
             document.getElementById('varPct').value = 0;
         }
+        updateRevFromCommPct();
         calculateReverseBilling();
     }
 
@@ -487,7 +506,25 @@
         document.getElementById('varFlat').value = Math.round(ctc * (pct / 100));
     }
 
-    function calculateReverseBilling() {
+    
+function getRevMonthlyBillingPreview(){
+ const ctc=parseFloat(document.getElementById('ctcAbsolute').value)||0;
+ const marginPct=parseFloat(document.getElementById('marginPct').value)||0;
+ return (ctc/12)*(1+marginPct/100);
+}
+function updateRevFromCommPct(){
+ const pct=parseFloat(document.getElementById('revCommPct').value)||0;
+ document.getElementById('revCommFlat').value=Math.round(getRevMonthlyBillingPreview()*pct/100);
+ calculateReverseBilling();
+}
+function updateRevFromCommFlat(){
+ const flat=parseFloat(document.getElementById('revCommFlat').value)||0;
+ const base=getRevMonthlyBillingPreview();
+ document.getElementById('revCommPct').value=base?((flat/base)*100).toFixed(2):0;
+ calculateReverseBilling();
+}
+
+function calculateReverseBilling() {
         const ctc = parseFloat(document.getElementById('ctcAbsolute').value) || 0;
         const varAnnual = parseFloat(document.getElementById('varFlat').value) || 0;
         const marginPct = parseFloat(document.getElementById('marginPct').value) || 0;
@@ -503,9 +540,11 @@
         
         // Add company markup margin on top of the comprehensive monthly cost profile
         const targetMonthlyBillingInr = monthlyBaseCost * (1 + (marginPct / 100));
+        const commMonthly=parseFloat(document.getElementById("revCommFlat").value)||0;
+        const netMonthlyBilling=targetMonthlyBillingInr-commMonthly;
         
         // Standard downscale distribution matrix
-        const billingPerDayInr = targetMonthlyBillingInr / dpm;
+        const billingPerDayInr = netMonthlyBilling / dpm;
         const billingPerHourInr = billingPerDayInr / hpd;
 
         // Convert tracking layers directly into foreign currency exchange fields
@@ -517,6 +556,8 @@
         document.getElementById('tblRevVariableAnnual').innerText = inrFormat.format(varAnnual);
         document.getElementById('tblRevMonthlyBase').innerText = inrFormat.format(monthlyBaseCost);
         document.getElementById('tblRevMonthlyBilling').innerText = inrFormat.format(targetMonthlyBillingInr);
+        document.getElementById('tblRevCommMonthly').innerText=inrFormat.format(commMonthly);
+        document.getElementById('tblRevNetMonthly').innerText=inrFormat.format(netMonthlyBilling);
         document.getElementById('tblRevDayInr').innerText = inrFormat.format(billingPerDayInr);
         document.getElementById('tblRevHourInr').innerText = inrFormat.format(billingPerHourInr);
         document.getElementById('tblRevDayUsd').innerText = usdFormat.format(billingPerDayUsd);
@@ -526,6 +567,7 @@
     // Run engine on lifecycle mount
     window.onload = function() {
         updateFromUsd();
+        updateRevFromCommPct();
         calculateReverseBilling();
     };
 </script>
