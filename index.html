@@ -541,7 +541,7 @@ function calculateReverseBilling() {
         // Add company markup margin on top of the comprehensive monthly cost profile
         const targetMonthlyBillingInr = monthlyBaseCost * (1 + (marginPct / 100));
         const commMonthly=parseFloat(document.getElementById("revCommFlat").value)||0;
-        const netMonthlyBilling=targetMonthlyBillingInr-commMonthly;
+        const netMonthlyBilling=targetMonthlyBillingInr+commMonthly;
         
         // Standard downscale distribution matrix
         const billingPerDayInr = netMonthlyBilling / dpm;
